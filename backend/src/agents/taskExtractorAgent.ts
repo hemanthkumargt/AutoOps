@@ -1,5 +1,5 @@
 import { query } from '../services/database';
-import { openaiService } from '../services/openaiService';
+import { geminiService } from '../services/geminiService';
 import { auditLoggerAgent } from './auditLoggerAgent';
 import { Task, TaskPriority } from '../models/taskModel';
 import { Meeting } from '../models/meetingModel';
@@ -29,8 +29,8 @@ class TaskExtractorAgent {
       title: meeting.title,
     });
 
-    // Call OpenAI to extract tasks
-    const extractedTasks = await openaiService.extractTasksFromTranscript(meeting.transcript);
+    // Call Gemini to extract tasks
+    const extractedTasks = await geminiService.extractTasksFromTranscript(meeting.transcript);
     logger.info('TaskExtractorAgent: AI extracted tasks', {
       meeting_id: meetingId,
       count: extractedTasks.length,

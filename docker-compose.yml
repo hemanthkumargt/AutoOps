@@ -45,7 +45,7 @@ services:
       DB_NAME: ${DB_NAME:-autoops}
       DB_USER: ${DB_USER:-postgres}
       DB_PASS: ${DB_PASS:-postgres}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
       EMAIL_HOST: ${EMAIL_HOST}
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_USER: ${EMAIL_USER}
@@ -58,8 +58,6 @@ services:
     ports:
       - "${PORT:-3001}:3001"
     volumes:
-      - ./backend:/app
-      - /app/node_modules
       - ./backend/logs:/app/logs
     networks:
       - autoops-network

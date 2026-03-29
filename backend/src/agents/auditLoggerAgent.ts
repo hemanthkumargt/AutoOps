@@ -1,6 +1,7 @@
 import { query } from '../services/database';
 import { AuditEntry, AuditLog, AuditFilters, AgentSummary, PaginatedResult } from '../models/auditModel';
 import logger from '../middleware/logger';
+import { socketService } from '../services/socketService';
 
 // ─── Audit Logger Agent ───────────────────────────────────────────────────────
 
@@ -23,6 +24,8 @@ class AuditLoggerAgent {
           entry.details ? JSON.stringify(entry.details) : null,
         ],
       );
+      // Broadcast real-time event to all connected clients
+      socketService.emit('agent_action', result.rows[0]);
       return result.rows[0];
     } catch (err) {
       const error = err as Error;

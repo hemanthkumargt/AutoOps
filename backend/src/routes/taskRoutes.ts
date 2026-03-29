@@ -7,6 +7,7 @@ import { Task, TaskStatus, TaskPriority } from '../models/taskModel';
 import { AuditLog } from '../models/auditModel';
 import { NotFoundError, ValidationError } from '../middleware/errorHandler';
 import logger from '../middleware/logger';
+import { socketService } from '../services/socketService';
 
 const router = Router({ mergeParams: true });
 
@@ -31,6 +32,10 @@ router.post(
       const { id } = req.params;
       logger.info('TaskRoutes: Extracting tasks for meeting', { meeting_id: id });
       const tasks = await taskExtractorAgent.extractAndStore(id);
+      
+      // Notify the frontend that new tasks exist
+      socketService.emit('task_created', { meeting_id: id, count: tasks.length });
+
       res.json({
         success: true,
         tasks_created: tasks.length,
@@ -183,6 +188,9 @@ router.put(
           new_status: status,
         },
       });
+
+      // Notify the frontend that a task was updated manually
+      socketService.emit('task_updated', result.rows[0]);
 
       res.json({ success: true, data: result.rows[0] });
     } catch (err) {

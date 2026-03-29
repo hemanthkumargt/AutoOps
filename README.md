@@ -17,7 +17,7 @@ Manual meeting follow-up is broken. Teams spend 30+ minutes per meeting manually
 
 ## 💡 Solution Overview
 
-AutoOps AI is a **7-agent autonomous system** that converts any meeting transcript into fully tracked, automatically enforced action items. Upload a transcript → GPT-4o extracts all tasks → owners are assigned → reminders and escalations fire automatically → a live dashboard shows you everything in real time. No manual follow-up. No missed deadlines.
+AutoOps AI is a **7-agent autonomous system** that converts any meeting transcript into fully tracked, automatically enforced action items. Upload a transcript → Gemini 1.5 Flash extracts all tasks → owners are assigned → reminders and escalations fire automatically → a live dashboard shows you everything in real time. No manual follow-up. No missed deadlines.
 
 The system uses a chain of specialized AI agents, each with a single responsibility: ingest, extract, remind, escalate, schedule, audit, and manage. Together they create a self-sustaining accountability loop.
 
@@ -64,7 +64,7 @@ The system uses a chain of specialized AI agents, each with a single responsibil
 | Backend     | Node.js 20 + TypeScript (strict)  | API server, agent orchestration    |
 | Framework   | Express.js 4                      | REST API routing + middleware       |
 | Database    | PostgreSQL 15 via `pg`            | Persistent data store              |
-| AI          | OpenAI GPT-4o via `openai` v4     | Task extraction from transcripts   |
+| AI          | Google Gemini via `@google/genai` | Task extraction from transcripts   |
 | Scheduler   | `node-cron`                       | Automated reminders & escalations  |
 | Email       | `nodemailer`                      | SMTP-based notifications           |
 | Logging     | `winston`                         | Structured JSON + console logs     |
@@ -145,7 +145,7 @@ docker-compose up --build
 | `DB_NAME`              | Yes      | `autoops`                            | Database name                              |
 | `DB_USER`              | Yes      | `postgres`                           | Database user                              |
 | `DB_PASS`              | Yes      | —                                    | Database password                          |
-| `OPENAI_API_KEY`       | Yes      | —                                    | OpenAI API key for GPT-4o task extraction  |
+| `GEMINI_API_KEY`       | Yes      | —                                    | Gemini API key for task extraction         |
 | `EMAIL_HOST`           | Yes      | `smtp.gmail.com`                     | SMTP server hostname                       |
 | `EMAIL_PORT`           | No       | `587`                                | SMTP port                                  |
 | `EMAIL_USER`           | Yes      | —                                    | SMTP username/email                        |
@@ -184,7 +184,7 @@ docker-compose up --build
 
 1. 🏠 **Visit** `http://localhost:3000` — see the homepage with live stats
 2. 📤 **Upload Meeting** — paste a team meeting transcript (minimum 50 chars)
-3. 🧠 **AI Extraction** — GPT-4o identifies tasks, owners, and deadlines automatically
+3. 🧠 **AI Extraction** — Gemini identifies tasks, owners, and deadlines automatically
 4. ✅ **Review Tasks** — switch to the Tasks tab; see extracted items with priority badges
 5. ✏️ **Update Status** — use the inline dropdown to mark a task as `in_progress`
 6. 📋 **Audit Log** — switch to Audit tab; watch every agent action logged in real time

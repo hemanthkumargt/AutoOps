@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 import logger from '../middleware/logger';
 import { TaskExtractionError } from '../middleware/errorHandler';
 
@@ -13,33 +13,23 @@ export interface ExtractedTask {
   reasoning: string;
 }
 
-// ─── System Prompt ────────────────────────────────────────────────────────────
+// ─── Gemini Service ───────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are an expert meeting analyst. Extract all action items and tasks from the meeting transcript. Return ONLY a valid JSON array, no markdown, no explanation. Each task object must have exactly these fields:
-- title: string (clear, actionable task description, max 200 chars)
-- owner: string (full name of the person responsible)
-- owner_email: string (email if mentioned, else empty string)
-- deadline: string (ISO 8601 format, infer from context, if unclear use 7 days from today)
-- priority: 'low' | 'medium' | 'high' | 'critical'
-- reasoning: string (one sentence explaining why this is a task)`;
-
-// ─── OpenAI Service ───────────────────────────────────────────────────────────
-
-class OpenAIService {
-  private client: OpenAI;
+class GeminiService {
+  private client: GoogleGenAI;
   private readonly MAX_RETRIES = 3;
   private readonly BACKOFF_DELAYS = [500, 1000, 2000]; // ms
 
   constructor() {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      logger.warn('OpenAI API key not set — task extraction will fail');
+      logger.warn('Gemini API key not set — task extraction will fail');
     }
-    this.client = new OpenAI({ apiKey: apiKey ?? 'missing-key' });
+    this.client = new GoogleGenAI({ apiKey: apiKey ?? 'missing-key' });
   }
 
   /**
-   * Extract action items from a meeting transcript using GPT.
+   * Extract action items from a meeting transcript using Gemini.
    * Implements exponential backoff on rate limit / network errors.
    */
   async extractTasksFromTranscript(transcript: string): Promise<ExtractedTask[]> {
@@ -49,29 +39,34 @@ class OpenAIService {
       try {
         if (attempt > 0) {
           const delay = this.BACKOFF_DELAYS[attempt - 1];
-          logger.warn(`OpenAIService: Retry attempt ${attempt + 1}/${this.MAX_RETRIES} after ${delay}ms`);
+          logger.warn(`GeminiService: Retry attempt ${attempt + 1}/${this.MAX_RETRIES} after ${delay}ms`);
           await this.sleep(delay);
         }
 
-        logger.info('OpenAIService: Sending transcript to GPT for task extraction', {
+        logger.info('GeminiService: Sending transcript to Gemini for task extraction', {
           transcript_length: transcript.length,
           attempt: attempt + 1,
         });
 
-        const response = await this.client.chat.completions.create({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: `Meeting Transcript:\n\n${transcript}` },
-          ],
-          temperature: 0.2,
-          max_tokens: 4000,
-          response_format: { type: 'json_object' },
+        const response = await this.client.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: `Meeting Transcript:\n\n${transcript}`,
+          config: {
+            systemInstruction: `You are an expert meeting analyst. Extract all action items and tasks from the meeting transcript. Return ONLY a valid JSON array, no markdown, no explanation. Each task object must have exactly these fields:
+- title: string (clear, actionable task description, max 200 chars)
+- owner: string (full name of the person responsible)
+- owner_email: string (email if mentioned, else empty string)
+- deadline: string (ISO 8601 format, infer from context, if unclear use 7 days from today)
+- priority: 'low' | 'medium' | 'high' | 'critical'
+- reasoning: string (one sentence explaining why this is a task)`,
+            temperature: 0.2,
+            responseMimeType: 'application/json',
+          },
         });
 
-        const rawContent = response.choices[0]?.message?.content;
+        const rawContent = response.text;
         if (!rawContent) {
-          throw new TaskExtractionError('OpenAI returned empty response');
+          throw new TaskExtractionError('Gemini returned empty response');
         }
 
         return this.parseAndValidateResponse(rawContent);
@@ -87,14 +82,14 @@ class OpenAIService {
         // Check if it's a rate limit or network error (retryable)
         const isRetryable = this.isRetryableError(error);
         if (!isRetryable || attempt === this.MAX_RETRIES - 1) {
-          logger.error('OpenAIService: Non-retryable error or max retries exceeded', {
+          logger.error('GeminiService: Non-retryable error or max retries exceeded', {
             error: error.message,
             attempt: attempt + 1,
           });
           break;
         }
 
-        logger.warn('OpenAIService: Retryable error encountered', {
+        logger.warn('GeminiService: Retryable error encountered', {
           error: error.message,
           attempt: attempt + 1,
         });
@@ -107,7 +102,7 @@ class OpenAIService {
   }
 
   /**
-   * Parse and validate the GPT JSON response.
+   * Parse and validate the Gemini JSON response.
    */
   private parseAndValidateResponse(rawContent: string): ExtractedTask[] {
     let parsed: unknown;
@@ -122,13 +117,13 @@ class OpenAIService {
           parsed = JSON.parse(match[0]);
         } catch {
           throw new TaskExtractionError(
-            'Failed to parse OpenAI response as JSON',
+            'Failed to parse Gemini response as JSON',
             rawContent,
           );
         }
       } else {
         throw new TaskExtractionError(
-          'Failed to parse OpenAI response as JSON',
+          'Failed to parse Gemini response as JSON',
           rawContent,
         );
       }
@@ -183,8 +178,8 @@ class OpenAIService {
   private isRetryableError(err: Error): boolean {
     const message = err.message.toLowerCase();
     return (
-      message.includes('rate limit') ||
       message.includes('429') ||
+      message.includes('rate limit') ||
       message.includes('network') ||
       message.includes('timeout') ||
       message.includes('503') ||
@@ -199,5 +194,5 @@ class OpenAIService {
   }
 }
 
-export const openaiService = new OpenAIService();
-export default OpenAIService;
+export const geminiService = new GeminiService();
+export default GeminiService;

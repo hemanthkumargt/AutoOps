@@ -1,9 +1,11 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import { createServer } from 'http';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import logger from './middleware/logger';
+import { socketService } from './services/socketService';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { checkDatabaseConnection, closeDatabasePool, query } from './services/database';
 import { schedulerAgent } from './agents/schedulerAgent';
@@ -137,7 +139,10 @@ async function bootstrap(): Promise<void> {
     },
   });
 
-  app.listen(PORT, () => {
+  const httpServer = createServer(app);
+  socketService.initialize(httpServer);
+
+  httpServer.listen(PORT, () => {
     logger.info(`AutoOps AI backend running on http://localhost:${PORT}`, {
       port: PORT,
       environment: process.env.NODE_ENV ?? 'development',
